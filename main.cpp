@@ -6,7 +6,8 @@
 
 int main(int argc, char** argv) {
     create_test_file("/home/splunker/test.in", 10);
-    split_into_chunks("/home/splunker/test.in", 4);
+    size_t chunks = split_into_chunks("/home/splunker/test.in", 4);
+    in_memory_file_manager manager{"/home/splunker/test.in", chunks};
 /*
     seastar::app_template app;
     app.run(argc, argv, [] {

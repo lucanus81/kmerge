@@ -2,9 +2,12 @@
 #define _UTILITIES_H
 
 #include <cstddef>
+#include <unordered_map>
+#include <string>
+#include <vector>
 
 void create_test_file(const char* path, size_t chunks);
-bool split_into_chunks(const char* source_file_path, size_t chunks);
+size_t split_into_chunks(const char* source_file_path, size_t chunks);
 
 struct in_memory_file_manager {
   in_memory_file_manager(const char* base_file_name, size_t chunks);
@@ -13,6 +16,11 @@ struct in_memory_file_manager {
   // - end(): dummy iterator
   // ++: extract the next min element
 private:
+  struct KeyPosition {
+    size_t key;
+    size_t offset_in_file;
+  };
+  std::vector<KeyPosition> parse_file(const char* file_name) const;
   /*
    * The manager maintains the following structure:
    *
@@ -38,7 +46,7 @@ private:
    *   always the minimum element for each file with a single read operation.
    * - the elements inside the vector are an heap
    */
-  std::unordered<std::string, std::vector<KeyPosition>> _lookup;
+  std::unordered_map<std::string, std::vector<KeyPosition>> _lookup;
 };
 
 #endif
