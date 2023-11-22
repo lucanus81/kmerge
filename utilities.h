@@ -17,6 +17,18 @@ private:
     size_t key;
     size_t offset_in_file;
   };
+  
+  struct make_min_heap {
+    bool operator()(const KeyPosition& kp1, const KeyPosition& kp2) {
+      return kp1.key > kp2.key;
+    }
+  };
+
+  struct sort_by_key {
+    bool operator()(const KeyPosition& kp1, const KeyPosition& kp2) {
+      return kp1.key < kp2.key;
+    }
+  };
 
   struct iterator {
     using iterator_category = std::forward_iterator_tag;
@@ -26,48 +38,10 @@ private:
     using reference = std::vector<KeyPosition>&;
     using const_reference = const std::vector<KeyPosition>&;
     
-    iterator(std::unordered_map<std::string, std::vector<KeyPosition>>* source, size_t current_index) : _source{source}, _current_index{current_index} {
-      if (!_source)
-        return;
-
-      _current.reserve(_source->size());
-      for (auto& [key, v] : *_source) {
-        std::make_heap(v.begin(), v.end(), 
-            [](const KeyPosition& kp1, const KeyPosition& kp2) { 
-              return kp1.key > kp2.key; 
-            });
-        if (v.begin() != v.end())
-          _current.push_back(*v.begin());
-      }
-      std::sort(_current.begin(), _current.end(), 
-        [](const KeyPosition& kp1, const KeyPosition& kp2) { 
-          return kp1.key < kp2.key; 
-        });
-    }
-
+    iterator(std::unordered_map<std::string, std::vector<KeyPosition>>* source, size_t current_index);
     const_reference operator*() const { return _current; }
     pointer operator->() { return &_current; }
-    iterator& operator++() {
-      _current.clear();
-      for (auto& [key, v] : *_source) {
-        std::pop_heap(v.begin(), v.end(),
-            [](const KeyPosition& kp1, const KeyPosition& kp2) {
-              return kp1.key > kp2.key;
-            });
-        if (v.begin() != v.end()) {
-          v.pop_back();
-          if (v.begin() != v.end())
-            _current.push_back(*v.begin());
-        }
-      }
-      std::sort(_current.begin(), _current.end(),
-        [](const KeyPosition& kp1, const KeyPosition& kp2) {
-          return kp1.key < kp2.key;
-        });
-
-      ++_current_index; 
-      return *this; 
-    }
+    iterator& operator++();
     friend bool operator!= (const iterator& a, const iterator& b) {
        return a._current_index != b._current_index;
     }
@@ -111,10 +85,6 @@ public:
   in_memory_file_manager(const char* base_file_name, size_t chunks);
   iterator begin() { return iterator{&_lookup, 0}; }
   iterator end() { return iterator{nullptr, _max_records_per_file}; }
-  // - add a method for making each array an heap
-  // - begin(): creates an heap from all the first element of each array (pop_heap())
-  // - end(): dummy iterator
-  // ++: extract the next min element
 };
 
 #endif

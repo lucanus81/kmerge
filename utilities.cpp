@@ -14,8 +14,7 @@
 void create_test_file(const char* path, size_t chunks) {
   std::random_device rd;
   std::mt19937 gen{rd()};
-  //std::uniform_int_distribution<size_t> d{1, std::numeric_limits<size_t>::max()};
-  std::uniform_int_distribution<size_t> d{1, 100};
+  std::uniform_int_distribution<size_t> d{1, std::numeric_limits<size_t>::max()};
   
   // TODO: for large files that don't fit in memory this code will throw OOM, but this
   //       is only for internal tests, soit should be fine.
@@ -128,3 +127,44 @@ in_memory_file_manager::in_memory_file_manager(const char* base_file_name, size_
       _max_records_per_file = it->second.size();
   }
 }
+
+/**
+ * Iterator construction
+ * @param source: the internal lookup table
+ * @param current_index: the initial index. Used to remember when to stop iterating
+ */
+in_memory_file_manager::iterator::iterator(std::unordered_map<std::string, std::vector<in_memory_file_manager::KeyPosition>>* source, size_t current_index)
+  : _source{source}, _current_index{current_index} {
+  if (!_source)
+    return;
+
+  _current.reserve(_source->size());
+  for (auto& [key, v] : *_source) {
+    std::make_heap(v.begin(), v.end(), make_min_heap{});
+    if (v.begin() != v.end())
+      _current.push_back(*v.begin());
+  }
+
+  std::sort(_current.begin(), _current.end(), sort_by_key{});
+}
+
+/**
+ * Move to the next bunch of records to merge
+ */
+in_memory_file_manager::iterator& in_memory_file_manager::iterator::operator++() {
+  _current.clear();
+  for (auto& [key, v] : *_source) {
+    std::pop_heap(v.begin(), v.end(), make_min_heap{});
+    if (v.begin() != v.end()) {
+      v.pop_back();
+      if (v.begin() != v.end())
+        _current.push_back(*v.begin());
+    }
+  }
+  
+  std::sort(_current.begin(), _current.end(), sort_by_key{});
+  ++_current_index; 
+
+  return *this; 
+}
+
