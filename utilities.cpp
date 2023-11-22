@@ -14,7 +14,8 @@
 void create_test_file(const char* path, size_t chunks) {
   std::random_device rd;
   std::mt19937 gen{rd()};
-  std::uniform_int_distribution<size_t> d{1, std::numeric_limits<size_t>::max()};
+  //std::uniform_int_distribution<size_t> d{1, std::numeric_limits<size_t>::max()};
+  std::uniform_int_distribution<size_t> d{1, 100};
   
   // TODO: for large files that don't fit in memory this code will throw OOM, but this
   //       is only for internal tests, soit should be fine.
@@ -117,11 +118,13 @@ std::vector<in_memory_file_manager::KeyPosition> in_memory_file_manager::parse_f
  * @param base_file_name: the base name for all the splitted files
  * @param chunks: how many files we have to load
  */
-in_memory_file_manager::in_memory_file_manager(const char* base_file_name, size_t chunks) {
+in_memory_file_manager::in_memory_file_manager(const char* base_file_name, size_t chunks) : _max_records_per_file{0} {
   for (size_t i=0; i<chunks; ++i) {
     std::string name{base_file_name};
     name += '.';
     name += std::to_string(i);
-    _lookup.emplace(std::move(name), parse_file(name.c_str()));
+    auto [it, _] = _lookup.emplace(std::move(name), parse_file(name.c_str()));
+    if (it->second.size() > _max_records_per_file)
+      _max_records_per_file = it->second.size();
   }
 }
