@@ -93,7 +93,7 @@ size_t split_into_chunks(const char* source_file_path, size_t chunks) {
  * @param file_name: the file name we're trying to load
  * @return a vector of KeyPosition structures
  */
-std::vector<in_memory_file_manager::KeyPosition> in_memory_file_manager::parse_file(const char* file_name) const {
+std::vector<in_memory_file_manager::KeyPosition> in_memory_file_manager::parse_file(const char* file_name, size_t file_idx) const {
   std::size_t record_count = file_size(file_name) / file::FILESIZE;
   std::cout <<"File " <<file_name <<" has " <<record_count <<" records\n";
   std::vector<KeyPosition> result;
@@ -104,7 +104,7 @@ std::vector<in_memory_file_manager::KeyPosition> in_memory_file_manager::parse_f
   size_t offset{0};
   while (input.read(reinterpret_cast<char*>(&buffer), file::FILESIZE)) {
     std::cout <<'<' <<buffer.key() <<',' <<offset <<">\n";
-    KeyPosition kp{buffer.key(), offset};
+    KeyPosition kp{buffer.key(), offset, file_idx};
     result.emplace_back(std::move(kp));
     offset += file::FILESIZE;
   }
@@ -117,12 +117,12 @@ std::vector<in_memory_file_manager::KeyPosition> in_memory_file_manager::parse_f
  * @param base_file_name: the base name for all the splitted files
  * @param chunks: how many files we have to load
  */
-in_memory_file_manager::in_memory_file_manager(const char* base_file_name, size_t chunks) : _max_records_per_file{0} {
+in_memory_file_manager::in_memory_file_manager(const char* base_file_name, size_t chunks) : _base_file_name{base_file_name}, _max_records_per_file{0} {
   for (size_t i=0; i<chunks; ++i) {
     std::string name{base_file_name};
     name += '.';
     name += std::to_string(i);
-    auto [it, _] = _lookup.emplace(std::move(name), parse_file(name.c_str()));
+    auto [it, _] = _lookup.emplace(std::move(name), parse_file(name.c_str(), i));
     if (it->second.size() > _max_records_per_file)
       _max_records_per_file = it->second.size();
   }
@@ -168,3 +168,43 @@ in_memory_file_manager::iterator& in_memory_file_manager::iterator::operator++()
   return *this; 
 }
 
+/**
+ * Method used to merge all the chunks into a single sorted file
+ * @param merged_file_path: output file full path
+ */
+bool in_memory_file_manager::merge_to(const char* merged_file_path) {
+  if (!merged_file_path || _lookup.empty())
+    return false;
+  
+  std::ofstream output_file{merged_file_path, std::ios::binary };
+  if (!output_file) {
+    std::cerr <<"Error when opening file: " <<std::strerror(errno) <<"\n";
+    return false;
+  }
+  
+  std::vector<const std::string*> files;
+  files.reserve(_lookup.size());
+  for (auto&& [key,_] : _lookup)
+    files.push_back(&key);
+  std::sort(files.begin(), files.end(), 
+    [](const std::string* s1, const std::string* s2) {
+      return *s1 < *s2;
+    });
+
+  for (auto it = begin(); it != end(); ++it) {
+    for (const in_memory_file_manager::KeyPosition& kp : *it) {
+      // std::cout <<'{' <<kp.key <<',' <<kp.offset_in_file <<',' <<kp.file_orig_index <<"} -> " <<*files[kp.file_orig_index] <<'\n';
+      std::ifstream input{*files[kp.file_orig_index], std::ios::binary};
+      file buffer{0};
+      input.seekg(kp.offset_in_file).read(reinterpret_cast<char*>(&buffer), file::FILESIZE);
+      if (buffer.key() != kp.key) {
+        std::cerr <<"Corrupted file\n";
+        return false;
+      }
+      output_file.write(reinterpret_cast<const char*>(&buffer), file::FILESIZE);
+      std::cout <<"> " <<buffer.key() <<'\n';
+    }
+  }
+
+  return true;
+}

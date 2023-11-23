@@ -16,6 +16,7 @@ private:
   struct KeyPosition {
     size_t key;
     size_t offset_in_file;
+    size_t file_orig_index;
   };
   
   struct make_min_heap {
@@ -52,7 +53,7 @@ private:
     size_t _current_index;
   };
 
-  std::vector<KeyPosition> parse_file(const char* file_name) const;
+  std::vector<KeyPosition> parse_file(const char* file_name, size_t file_idx) const;
   /*
    * The manager maintains the following structure:
    *
@@ -78,13 +79,16 @@ private:
    *   always the minimum element for each file with a single read operation.
    * - the elements inside the vector are an heap
    */
+  // TODO: I think I might need a simple vector pair<std::string, std::vector<KeyPosition>>
   std::unordered_map<std::string, std::vector<KeyPosition>> _lookup;
+  const char* _base_file_name;
   size_t _max_records_per_file;
 
 public:
   in_memory_file_manager(const char* base_file_name, size_t chunks);
   iterator begin() { return iterator{&_lookup, 0}; }
   iterator end() { return iterator{nullptr, _max_records_per_file}; }
+  bool merge_to(const char* merged_file_path);
 };
 
 #endif

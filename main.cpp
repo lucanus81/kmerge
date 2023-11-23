@@ -49,6 +49,21 @@ seastar::future<file_with_chunk_info> wrapper_split_into_chunks(std::string sour
 }
 
 int main(int argc, char** argv) {
+    create_test_file("/home/splunker/test.in", 10);
+    size_t chunks = split_into_chunks("/home/splunker/test.in", 3);
+    in_memory_file_manager manager{"/home/splunker/test.in", chunks};
+    manager.merge_to("/home/splunker/test.in.merged");
+
+    /*
+    for (auto i = manager.begin(); i!=manager.end(); ++i) {
+      std::cout <<"===== START =========\n";
+      size_t b{0};
+      for (auto j=i->begin(); j!=i->end(); ++j)
+        std::cout <<b++ <<": " <<j->key <<'\n';
+      std::cout <<"===== END ========\n";
+    }*/
+
+  /*
     seastar::app_template app;
     app.add_options()
       ("source_file_path", bpo::value<std::string>(), "Large binary file path")
@@ -64,5 +79,6 @@ int main(int argc, char** argv) {
         })
         .then([]{ return seastar::make_ready_future<>(); });
     });
+    */
 }
 
