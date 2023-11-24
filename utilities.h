@@ -35,22 +35,22 @@ private:
     using iterator_category = std::forward_iterator_tag;
     using difference_type = std::ptrdiff_t;
     using value_type = std::vector<KeyPosition>;
-    using pointer = std::vector<KeyPosition>*;
-    using reference = std::vector<KeyPosition>&;
-    using const_reference = const std::vector<KeyPosition>&;
+    using pointer = KeyPosition*;
+    using reference = KeyPosition&;
+    using const_reference = const KeyPosition&;
     
-    iterator(std::unordered_map<std::string, std::vector<KeyPosition>>* source, size_t current_index);
-    const_reference operator*() const { return _current; }
-    pointer operator->() { return &_current; }
+    iterator(std::unordered_map<std::string, std::vector<KeyPosition>>* source, bool is_end);
+    const_reference operator*() const { return _current[0]; }
+    pointer operator->() { return &_current[0]; }
     iterator& operator++();
     friend bool operator!= (const iterator& a, const iterator& b) {
-       return a._current_index != b._current_index;
+       return a._is_end != b._is_end;
     }
 
   private:
     std::unordered_map<std::string, std::vector<KeyPosition>>*  _source;
     std::vector<KeyPosition> _current;
-    size_t _current_index;
+    bool _is_end;
   };
 
   std::vector<KeyPosition> parse_file(const char* file_name, size_t file_idx) const;
@@ -86,8 +86,8 @@ private:
 
 public:
   in_memory_file_manager(const char* base_file_name, size_t chunks);
-  iterator begin() { return iterator{&_lookup, 0}; }
-  iterator end() { return iterator{nullptr, _max_records_per_file}; }
+  iterator begin() { return iterator{&_lookup, false}; }
+  iterator end() { return iterator{nullptr, true}; }
   bool merge_to(const char* merged_file_path);
 };
 

@@ -133,38 +133,61 @@ in_memory_file_manager::in_memory_file_manager(const char* base_file_name, size_
  * @param source: the internal lookup table
  * @param current_index: the initial index. Used to remember when to stop iterating
  */
-in_memory_file_manager::iterator::iterator(std::unordered_map<std::string, std::vector<in_memory_file_manager::KeyPosition>>* source, size_t current_index)
-  : _source{source}, _current_index{current_index} {
+in_memory_file_manager::iterator::iterator(std::unordered_map<std::string, std::vector<in_memory_file_manager::KeyPosition>>* source, bool is_end)
+  : _source{source}, _is_end{is_end} {
   if (!_source)
     return;
 
   _current.reserve(_source->size());
+  // 1) Let's get, from each heap, the minimum element and let's place all the current minimums into
+  //    a temporary vector
   for (auto& [key, v] : *_source) {
     std::make_heap(v.begin(), v.end(), make_min_heap{});
-    if (v.begin() != v.end())
-      _current.push_back(*v.begin());
+    if (v.begin() != v.end()) {
+      std::pop_heap(v.begin(), v.end(), make_min_heap{});
+      _current.push_back(v.back());
+      v.pop_back();
+    }
   }
 
-  std::sort(_current.begin(), _current.end(), sort_by_key{});
+  // 2) Now, we need to make the current vector a real min heap
+  std::make_heap(_current.begin(), _current.end(), make_min_heap{});
 }
 
 /**
  * Move to the next bunch of records to merge
  */
 in_memory_file_manager::iterator& in_memory_file_manager::iterator::operator++() {
-  _current.clear();
-  for (auto& [key, v] : *_source) {
-    std::pop_heap(v.begin(), v.end(), make_min_heap{});
-    if (v.begin() != v.end()) {
-      v.pop_back();
-      if (v.begin() != v.end())
-        _current.push_back(*v.begin());
-    }
-  }
-  
-  std::sort(_current.begin(), _current.end(), sort_by_key{});
-  ++_current_index; 
+  // 0) ++ should return the next min element between all the available data sources. We first remove the current minimum
+  std::pop_heap(_current.begin(), _current.end(), make_min_heap{});
+  _current.pop_back();
 
+  if (_current.size() == 0) {
+    // 1.1)reload the heap
+    for (auto& [key, v] : *_source)
+      if (v.begin() != v.end()) {
+        std::pop_heap(v.begin(), v.end(), make_min_heap{});
+        _current.push_back(v.back());
+        v.pop_back();
+      }
+  } else {
+    size_t current_size_heap = _current.size();
+    // 1.2) Let's see if we have another minimum that needs to be inserted into the current heap
+    for (auto& [key, v] : *_source)
+      if (v.size() && make_min_heap{}(v[0],_current[0])) {
+        std::pop_heap(v.begin(), v.end(), make_min_heap{});
+        _current.push_back(v.back());
+        v.pop_back();
+      }
+    // 1.2.1) do we need to re-create the heap?
+    if (current_size_heap != _current.size())
+      std::make_heap(_current.begin(), _current.end(), make_min_heap{});
+  }
+
+  // 2) We might be at the very end
+  if (_current.size() == 0)
+    _is_end = true;
+  
   return *this; 
 }
 
@@ -173,6 +196,7 @@ in_memory_file_manager::iterator& in_memory_file_manager::iterator::operator++()
  * @param merged_file_path: output file full path
  */
 bool in_memory_file_manager::merge_to(const char* merged_file_path) {
+  /*
   if (!merged_file_path || _lookup.empty())
     return false;
   
@@ -204,7 +228,7 @@ bool in_memory_file_manager::merge_to(const char* merged_file_path) {
       output_file.write(reinterpret_cast<const char*>(&buffer), file::FILESIZE);
       std::cout <<"> " <<buffer.key() <<'\n';
     }
-  }
+  }*/
 
   return true;
 }
