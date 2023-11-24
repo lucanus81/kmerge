@@ -29,12 +29,13 @@ namespace bpo = boost::program_options;
 
 struct file_with_chunk_info {
   std::string source_file_path;
+  std::string merged_file_path;
   size_t tot_created_files;
 };
 
-seastar::future<file_with_chunk_info> wrapper_split_into_chunks(std::string source_file_path, size_t max_records_per_file) {
+seastar::future<file_with_chunk_info> wrapper_split_into_chunks(std::string source_file_path, std::string merged_file_path, size_t max_records_per_file) {
   size_t total_created_files = split_into_chunks(source_file_path.c_str(), max_records_per_file);
-  file_with_chunk_info result{ std::move(source_file_path), total_created_files };
+  file_with_chunk_info result{ std::move(source_file_path), std::move(merged_file_path), total_created_files };
   return seastar::make_ready_future<file_with_chunk_info>(std::move(result));
 }
 
@@ -46,23 +47,26 @@ void test_sync_merger() {
 }
 
 int main(int argc, char** argv) {
-  test_sync_merger();
-  /*
-    seastar::app_template app;
-    app.add_options()
-      ("source_file_path", bpo::value<std::string>(), "Large binary file path")
-      ("max_records_per_file", bpo::value<size_t>()->default_value(100), "Max records in each intermediate file created");
-    app.run(argc, argv, [&] {
-      auto&& config = app.configuration();
-      std::string source_file_path = config["source_file_path"].as<std::string>();
-      size_t max_records_per_file = config["max_records_per_file"].as<size_t>();
-      std::cout << "Processing " <<source_file_path <<", and max_records = " <<max_records_per_file <<'\n';
-      return wrapper_split_into_chunks(std::move(source_file_path), max_records_per_file)
-        .then([](file_with_chunk_info result) {
-          std::cout <<"Finished to process " <<result.source_file_path <<": created " <<result.tot_created_files <<" temporary files\n"; 
-        })
-        .then([]{ return seastar::make_ready_future<>(); });
-    });
-    */
+  // create_test_file("/home/splunker/test.in", 10);
+  
+  seastar::app_template app;
+  app.add_options()
+    ("source_file_path", bpo::value<std::string>(), "Large binary file path")
+    ("merged_file_path", bpo::value<std::string>(), "Large merged binary file path")
+    ("max_records_per_file", bpo::value<size_t>()->default_value(100), "Max records in each intermediate file created");
+  app.run(argc, argv, [&] {
+    auto&& config = app.configuration();
+    std::string source_file_path = config["source_file_path"].as<std::string>();
+    std::string merged_file_path = config["merged_file_path"].as<std::string>();
+    size_t max_records_per_file = config["max_records_per_file"].as<size_t>();
+    std::cout << "Processing " <<source_file_path <<", and max_records = " <<max_records_per_file <<'\n';
+    return wrapper_split_into_chunks(std::move(source_file_path), merged_file_path, max_records_per_file)
+      .then([](file_with_chunk_info result) {
+        in_memory_file_manager manager{result.source_file_path.c_str(), result.tot_created_files};
+        manager.merge_to(result.merged_file_path.c_str());
+        std::cout <<"Finished to process " <<result.source_file_path <<": created " <<result.tot_created_files <<" temporary files\n"; 
+      })
+      .then([]{ return seastar::make_ready_future<>(); });
+  });
 }
 
