@@ -8,7 +8,10 @@
 #include <algorithm>
 #include <iostream>
 
+#include <seastar/core/seastar.hh>
+
 void create_test_file(const char* path, size_t chunks);
+seastar::future<long unsigned int>  create_test_file_async(const char* path, size_t chunks);
 size_t split_into_chunks(const char* source_file_path, size_t chunks);
 
 struct in_memory_file_manager {

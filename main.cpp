@@ -39,16 +39,24 @@ seastar::future<file_with_chunk_info> wrapper_split_into_chunks(std::string sour
   return seastar::make_ready_future<file_with_chunk_info>(std::move(result));
 }
 
-void test_sync_merger() {
-  create_test_file("/home/splunker/test.in", 10);
-  size_t chunks = split_into_chunks("/home/splunker/test.in", 3);
-  in_memory_file_manager manager{"/home/splunker/test.in", chunks};
-  manager.merge_to("/home/splunker/test.in.merged");
-}
-
 int main(int argc, char** argv) {
-  // create_test_file("/home/splunker/test.in", 10);
-  
+  /*
+  const char* file_name_path = "/home/splunker/test.in";
+  constexpr size_t max_records_per_file = 10;
+  create_test_file(file_name_path, max_records_per_file);
+  */
+
+/* NOT WORKING: file isn't written properly
+  seastar::app_template app;
+  const char* file_name_path = "/home/splunker/test.in";
+  constexpr size_t max_records_per_file = 10;
+  app.run(argc, argv, [&] {
+    return create_test_file_async(file_name_path, max_records_per_file)
+      .then([&](unsigned long int bytes_written) {
+          std::cout <<"I have created " <<file_name_path <<", size = " <<bytes_written <<" bytes\n";
+      });
+  }); */
+
   seastar::app_template app;
   app.add_options()
     ("source_file_path", bpo::value<std::string>(), "Large binary file path")
