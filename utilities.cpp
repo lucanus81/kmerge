@@ -214,7 +214,7 @@ in_memory_file_manager::iterator& in_memory_file_manager::iterator::operator++()
  * @param merged_file_path: output file full path
  */
 bool in_memory_file_manager::merge_to(const char* merged_file_path) {
-  /*
+  
   if (!merged_file_path || _lookup.empty())
     return false;
   
@@ -234,19 +234,17 @@ bool in_memory_file_manager::merge_to(const char* merged_file_path) {
     });
 
   for (auto it = begin(); it != end(); ++it) {
-    for (const in_memory_file_manager::KeyPosition& kp : *it) {
-      // std::cout <<'{' <<kp.key <<',' <<kp.offset_in_file <<',' <<kp.file_orig_index <<"} -> " <<*files[kp.file_orig_index] <<'\n';
-      std::ifstream input{*files[kp.file_orig_index], std::ios::binary};
-      file buffer{0};
-      input.seekg(kp.offset_in_file).read(reinterpret_cast<char*>(&buffer), file::FILESIZE);
-      if (buffer.key() != kp.key) {
-        std::cerr <<"Corrupted file\n";
-        return false;
-      }
-      output_file.write(reinterpret_cast<const char*>(&buffer), file::FILESIZE);
-      std::cout <<"> " <<buffer.key() <<'\n';
+    // std::cout <<'{' <<kp.key <<',' <<kp.offset_in_file <<',' <<kp.file_orig_index <<"} -> " <<*files[kp.file_orig_index] <<'\n';
+    std::ifstream input{*files[it->file_orig_index], std::ios::binary};
+    file buffer{0};
+    input.seekg(it->offset_in_file).read(reinterpret_cast<char*>(&buffer), file::FILESIZE);
+    if (buffer.key() != it->key) {
+      std::cerr <<"Corrupted file\n";
+      return false;
     }
-  }*/
+    output_file.write(reinterpret_cast<const char*>(&buffer), file::FILESIZE);
+    std::cout <<"> " <<buffer.key() <<'\n';
+  }
 
   return true;
 }
