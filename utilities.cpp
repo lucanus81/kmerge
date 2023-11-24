@@ -14,8 +14,7 @@
 void create_test_file(const char* path, size_t chunks) {
   std::random_device rd;
   std::mt19937 gen{rd()};
-  // std::uniform_int_distribution<size_t> d{1, std::numeric_limits<size_t>::max()};
-  std::uniform_int_distribution<size_t> d{1,1000};
+  std::uniform_int_distribution<size_t> d{1, std::numeric_limits<size_t>::max()};
   
   // TODO: for large files that don't fit in memory this code will throw OOM, but this
   //       is only for internal tests, soit should be fine.
@@ -143,6 +142,15 @@ void in_memory_file_manager::iterator::dump() {
   std::cout <<'\n';
 }
 
+void in_memory_file_manager::iterator::push_min_to(
+  std::vector<in_memory_file_manager::KeyPosition>* from, 
+  std::vector<in_memory_file_manager::KeyPosition>* to) {
+  
+  std::pop_heap(from->begin(), from->end(), make_min_heap{});
+  to->push_back(from->back());
+  from->pop_back();
+}
+
 /**
  * Iterator construction
  * @param source: the internal lookup table
@@ -158,16 +166,12 @@ in_memory_file_manager::iterator::iterator(std::unordered_map<std::string, std::
   //    a temporary vector
   for (auto& [key, v] : *_source) {
     std::make_heap(v.begin(), v.end(), make_min_heap{});
-    if (v.begin() != v.end()) {
-      std::pop_heap(v.begin(), v.end(), make_min_heap{});
-      _current.push_back(v.back());
-      v.pop_back();
-    }
+    if (v.begin() != v.end())
+      push_min_to(&v, &_current);
   }
 
   // 2) Now, we need to make the current vector a real min heap
   std::make_heap(_current.begin(), _current.end(), make_min_heap{});
-  //std::cout <<"begin() "; dump();
 }
 
 /**
@@ -179,33 +183,26 @@ in_memory_file_manager::iterator& in_memory_file_manager::iterator::operator++()
   _current.pop_back();
 
   if (_current.size() == 0) {
-    // 1.1)reload the heap
+    // 1.1) reload the heap
     for (auto& [key, v] : *_source)
-      if (v.begin() != v.end()) {
-        std::pop_heap(v.begin(), v.end(), make_min_heap{});
-        _current.push_back(v.back());
-        v.pop_back();
-      }
-    //std::cout <<"1.1 "; dump();
+      if (v.begin() != v.end())
+        push_min_to(&v, &_current);
+    if (_current.size() != 0)
+      std::make_heap(_current.begin(), _current.end(), make_min_heap{});
   } else {
     size_t current_size_heap = _current.size();
     // 1.2) Let's see if we have another minimum that needs to be inserted into the current heap
+    //      from any of the available sources
     for (auto& [key, v] : *_source) {
-      //std::cout <<"Comparing " <<v[0].key <<" && " <<_current[0].key <<'\n';
-      if (v.size() && !make_min_heap{}(v[0],_current[0])) {
-        std::pop_heap(v.begin(), v.end(), make_min_heap{});
-        //std::cout <<"Adding " <<v.back().key <<'\n';
-        _current.push_back(v.back());
-        v.pop_back();
-      }
+      if (v.size() && !make_min_heap{}(v[0],_current[0])) 
+        push_min_to(&v, &_current);
     }
     // 1.2.1) do we need to re-create the heap?
     if (current_size_heap != _current.size())
       std::make_heap(_current.begin(), _current.end(), make_min_heap{});
-    //std::cout <<"1.2 "; dump();
   }
 
-  // 2) We might be at the very end
+  // 2) We might be at the very end and consumed all the elements alredy
   if (_current.size() == 0)
     _is_end = true;
   

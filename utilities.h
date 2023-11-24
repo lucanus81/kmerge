@@ -53,9 +53,11 @@ private:
     bool _is_end;
 
     void dump();
+    void push_min_to(std::vector<KeyPosition>* from, std::vector<KeyPosition>* to);
   };
 
   std::vector<KeyPosition> parse_file(const char* file_name, size_t file_idx) const;
+
   /*
    * The manager maintains the following structure:
    *
