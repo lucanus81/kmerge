@@ -51,6 +51,8 @@ private:
     std::unordered_map<std::string, std::vector<KeyPosition>>*  _source;
     std::vector<KeyPosition> _current;
     bool _is_end;
+
+    void dump();
   };
 
   std::vector<KeyPosition> parse_file(const char* file_name, size_t file_idx) const;
